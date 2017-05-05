@@ -105,7 +105,7 @@ public class JedisxSentinelPool {
 
   private void startMonitorThread() {
     ServerMonitor serverMonitor = new ServerMonitor(this.jedisServers);
-    serverMonitor.startMonitor();
+    serverMonitor.start();
   }
 
   private void initMasterPool() {
@@ -119,7 +119,7 @@ public class JedisxSentinelPool {
     }
   }
 
-  public List<Map<String, String>> sentinel(String command) {
+  private List<Map<String, String>> sentinel(String command) {
 
     List<Map<String, String>> response = null;
     for (String sentinel : sentinels) {
@@ -175,10 +175,21 @@ public class JedisxSentinelPool {
     }
   }
 
+  /**
+   * 获取Master的Jedis
+   *
+   * @return Jedis
+   */
   public Jedis getResource() {
     return this.masterJedisSentinelPool.getResource();
   }
 
+  /**
+   * 获取最近的一个Jedis, 有可能返回的Slave
+   * 对一致性要求高的不能用该方法
+   *
+   * @return 最近的Jedis
+   */
   public Jedis getNearestResource() {
 
     List<JedisServer> jedisServers = nearestJedisSelector.select(this.jedisServers);

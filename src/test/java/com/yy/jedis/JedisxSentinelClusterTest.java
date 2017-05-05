@@ -3,13 +3,13 @@ package com.yy.jedis;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadLocalRandom;
 import org.junit.Test;
 
 /**
  * @author hoswey
  */
-public class JedisSentinelClusterTest {
+public class JedisxSentinelClusterTest {
 
   @Test
   public void getResource() throws Exception {
@@ -22,7 +22,9 @@ public class JedisSentinelClusterTest {
         "172.26.40.16:26380", "172.26.40.16:26381"));
     JedisxSentinelPool cluster = new JedisxSentinelPool("mymaster", sentinels);
 
-    TimeUnit.MINUTES.sleep(10);
+    cluster.getNearestResource().get(ThreadLocalRandom.current().nextInt(0, 10000) + "");
+
+    //TimeUnit.MINUTES.sleep(10);
   }
 
 }

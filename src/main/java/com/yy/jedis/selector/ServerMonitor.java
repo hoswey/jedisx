@@ -77,7 +77,8 @@ public class ServerMonitor {
         averageRoundTripTime.addSample(elapsedTimeNanos);
         jedisServer.setRoundTripTimeNanos(averageRoundTripTime.getAverage());
 
-        log.debug("[cmd=pingAndCalRoundTrip,elapsedTimeMills={},average={}]",
+        log.debug("[cmd=pingAndCalRoundTrip,HostAndPort={},elapsedTimeMacros={},averageMacros={}]",
+            jedisServer.getHostAndPort(),
             elapsedTimeNanos / 1000,
             averageRoundTripTime.getAverage() / 1000);
 
