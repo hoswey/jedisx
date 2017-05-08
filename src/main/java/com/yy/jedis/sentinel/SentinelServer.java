@@ -2,6 +2,7 @@ package com.yy.jedis.sentinel;
 
 import com.yy.jedis.JedisServer;
 import com.yy.jedis.ServerRole;
+import com.yy.jedis.concurrent.DaemonThreadFactory;
 import com.yy.jedis.utils.CollectionUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -43,7 +44,7 @@ public class SentinelServer {
   private Condition slaveInitializeCondition = slaveLock.newCondition();
 
   private Lock masterLock = new ReentrantLock();
-  private Condition masterInitializeCondition = slaveLock.newCondition();
+  private Condition masterInitializeCondition = masterLock.newCondition();
 
   public SentinelServer(String masterName, Set<String> sentinels,
       SentinelEventListener eventListener) {
@@ -59,7 +60,8 @@ public class SentinelServer {
     startSubscribeSentinemChannels();
 
     ScheduledExecutorService scheduledExecutorService = Executors
-        .newSingleThreadScheduledExecutor();
+        .newSingleThreadScheduledExecutor(
+            new DaemonThreadFactory("Redis Server Pooling Status Pool"));
     scheduledExecutorService.scheduleAtFixedRate(new MasterSlavesPoolingTask(),
         0, 10, TimeUnit.SECONDS);
   }
@@ -94,7 +96,7 @@ public class SentinelServer {
       jedis.ping();
       succ = true;
     } catch (JedisException je) {
-      log.warn("Cannot connect to sentinel server " + hostAndPort);
+      log.warn("Cannot connect to server " + hostAndPort);
     }
     return succ;
   }
@@ -113,7 +115,7 @@ public class SentinelServer {
           Thread.currentThread().interrupt();
         }
       } finally {
-        masterLock.unlock();
+        slaveLock.unlock();
       }
     }
     return slaveServers;
@@ -130,7 +132,7 @@ public class SentinelServer {
 
   public void startSubscribeSentinemChannels() {
     for (HostAndPort hostAndPort : hostAndPorts) {
-      SentinelSubscriber sentinelListener = new SentinelSubscriber(hostAndPort);
+      SentinelSubscriber sentinelListener = new SentinelSubscriber(masterName, hostAndPort);
       sentinelListener.setDaemon(true);
       sentinelListener.start();
     }
@@ -256,32 +258,22 @@ public class SentinelServer {
   protected class SentinelSubscriber extends Thread {
 
     protected String masterName;
-    protected String host;
-    protected int port;
+    protected HostAndPort hostAndPort;
     protected long subscribeRetryWaitTimeMillis = 5000;
     protected AtomicBoolean running = new AtomicBoolean(false);
 
-
     private SentinelChannelPubSub sentinelChannelPubSub;
 
-    protected SentinelSubscriber(HostAndPort hostAndPort) {
-    }
+    public SentinelSubscriber(String masterName, HostAndPort hostAndPort) {
 
-    public SentinelSubscriber(String masterName, String host, int port) {
-
-      super(String.format("SentinelListener-%s-[%s:%d]", masterName, host, port));
+      super(String.format("SentinelListener-%s-[%s:%d]", masterName, hostAndPort.getHost(),
+          hostAndPort.getPort()));
       this.masterName = masterName;
-      this.host = host;
-      this.port = port;
+      this.hostAndPort = hostAndPort;
 
       sentinelChannelPubSub = new SentinelChannelPubSub();
     }
 
-    public SentinelSubscriber(String masterName, String host, int port,
-        long subscribeRetryWaitTimeMillis) {
-      this(masterName, host, port);
-      this.subscribeRetryWaitTimeMillis = subscribeRetryWaitTimeMillis;
-    }
 
     @Override
     public void run() {
@@ -292,13 +284,14 @@ public class SentinelServer {
 
         Jedis j = null;
         try {
-          j = new Jedis(host, port);
+          j = new Jedis(hostAndPort.getHost(), hostAndPort.getPort());
           j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown");
           log.debug("After subscribe sentinel channel");
         } catch (JedisConnectionException e) {
 
           if (running.get()) {
-            log.error("Lost connection to Sentinel at " + host + ":" + port
+            log.error("Lost connection to Sentinel at " + hostAndPort.getHost() + ":" + hostAndPort
+                .getPort()
                 + ". Sleeping " + subscribeRetryWaitTimeMillis + "ms and retrying.", e);
             try {
               Thread.sleep(subscribeRetryWaitTimeMillis);
@@ -324,7 +317,7 @@ public class SentinelServer {
         if (!running.compareAndSet(true, false)) {
           return;
         }
-        log.debug("Shutting down listener on " + host + ":" + port);
+        log.debug("Shutting down listener on " + hostAndPort);
         sentinelChannelPubSub.unsubscribe();
       } catch (Exception e) {
         log.error("Caught exception while shutting down: ", e);

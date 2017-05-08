@@ -17,7 +17,7 @@
 package com.yy.jedis.selector;
 
 
-import static com.yy.jedis.utils.Assertions.isTrueArgument;
+import static com.yy.jedis.utils.Assertions.isTrue;
 
 class ExponentiallyWeightedMovingAverage {
 
@@ -25,7 +25,7 @@ class ExponentiallyWeightedMovingAverage {
   private long average = -1;
 
   ExponentiallyWeightedMovingAverage(final double alpha) {
-    isTrueArgument("alpha >= 0.0 and <= 1.0", alpha >= 0.0 && alpha <= 1.0);
+    isTrue("alpha >= 0.0 and <= 1.0", alpha >= 0.0 && alpha <= 1.0);
     this.alpha = alpha;
   }
 

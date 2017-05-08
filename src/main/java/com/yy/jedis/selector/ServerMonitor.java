@@ -1,6 +1,7 @@
 package com.yy.jedis.selector;
 
 import com.yy.jedis.JedisServer;
+import com.yy.jedis.concurrent.DaemonThreadFactory;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -26,7 +27,8 @@ public class ServerMonitor {
   public ServerMonitor(List<JedisServer> jedisServers) {
 
     this.jedisServers = jedisServers;
-    this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    this.scheduledExecutorService = Executors
+        .newSingleThreadScheduledExecutor(new DaemonThreadFactory("Round Trip Time Monitor Pool"));
     this.monitors = new ConcurrentHashMap<>();
   }
 
@@ -51,6 +53,7 @@ public class ServerMonitor {
   public void updateServers(List<JedisServer> jedisServers) {
     this.jedisServers = jedisServers;
   }
+
 
   class ServerMonitorRunnable implements Runnable {
 
