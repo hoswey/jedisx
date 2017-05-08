@@ -1,29 +1,40 @@
-package com.yy.jedis;
+package com.yy.jedis.sentinel;
 
-import com.yy.jedis.selector.NearestJedisSelector;
+import com.yy.jedis.JedisServer;
+import com.yy.jedis.selector.CompositeSelector;
+import com.yy.jedis.selector.LatencyMinimizingServerSelector;
 import com.yy.jedis.selector.ServerMonitor;
+import com.yy.jedis.selector.ServerSelector;
+import com.yy.jedis.selector.SlavePreferredSelector;
+import com.yy.jedis.sentinel.SentinelServer.SentinelEventListener;
+import com.yy.jedis.utils.Assertions;
+import com.yy.jedis.utils.CollectionUtils;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisSentinelPool;
 import redis.clients.jedis.Protocol;
-import redis.clients.jedis.exceptions.JedisException;
 import redis.clients.util.Pool;
+
+import static com.yy.jedis.utils.Assertions.isTrue;
 
 /**
  * @author hoswey
  */
+@Slf4j
 public class JedisxSentinelPool {
 
-  private GenericObjectPoolConfig poolConfig;
+  private static final int DEFAULT_ACCEPTANCE_LATENCY = 5;
 
+  private GenericObjectPoolConfig poolConfig;
   private int connectionTimeout;
   private int soTimeout;
   private String password;
@@ -33,10 +44,20 @@ public class JedisxSentinelPool {
   private JedisSentinelPool masterJedisSentinelPool;
   private Set<String> sentinels;
 
+  private JedisServer masterServer;
+  private List<JedisServer> slaveServers = new ArrayList<>();
 
   private List<JedisServer> jedisServers = new ArrayList<>();
+  private List<HostAndPort> allHostAndPorts = new ArrayList<>();
 
-  private NearestJedisSelector nearestJedisSelector = new NearestJedisSelector();
+  private SentinelServer sentinelServer;
+
+  private ServerMonitor serverMonitor;
+
+  private ServerSelector nearestSlavePreferredSelector =
+      new CompositeSelector(
+          Arrays.asList(new LatencyMinimizingServerSelector(DEFAULT_ACCEPTANCE_LATENCY,
+              TimeUnit.MILLISECONDS), new SlavePreferredSelector()));
 
   public JedisxSentinelPool(String masterName, Set<String> sentinels,
       final GenericObjectPoolConfig poolConfig) {
@@ -98,81 +119,90 @@ public class JedisxSentinelPool {
     this.clientName = clientName;
     this.sentinels = sentinels;
 
+    initSentinelSever();
     initMasterPool();
     initSlavePools();
     startMonitorThread();
   }
 
+  private void initSentinelSever() {
+
+    sentinelServer = new SentinelServer(masterName, sentinels, new SentinelEventListener() {
+
+      @Override
+      public void onSlaveChange(List<JedisServer> newSlaveServers) {
+
+        if (!CollectionUtils.isEqual(slaveServers, newSlaveServers)) {
+
+          List<JedisServer> newJedisServers = new ArrayList<>();
+          newJedisServers.add(masterServer);
+          newJedisServers.addAll(slaveServers);
+
+          for (JedisServer newJedisServer : newJedisServers) {
+            initPool(newJedisServer);
+          }
+
+          serverMonitor.updateServers(newJedisServers);
+          jedisServers = newJedisServers;
+
+          for (JedisServer oldSlaveServer : slaveServers) {
+            closePool(oldSlaveServer);
+          }
+        }
+      }
+
+      @Override
+      public void onMasterChange(JedisServer newMaster) {
+        log.info("[cmd=onMasterChange,newMaster={}]", newMaster);
+      }
+    });
+  }
+
+  private void closePool(JedisServer jedisServer) {
+    try {
+      jedisServer.getPools().close();
+    } catch (Exception e) {
+    }
+  }
+
   private void startMonitorThread() {
-    ServerMonitor serverMonitor = new ServerMonitor(this.jedisServers);
+    serverMonitor = new ServerMonitor(this.jedisServers);
     serverMonitor.start();
   }
 
   private void initMasterPool() {
+
     this.masterJedisSentinelPool = new JedisSentinelPool(masterName, sentinels, poolConfig,
         connectionTimeout, soTimeout, password, database, clientName);
-    try (Jedis jedis = masterJedisSentinelPool.getResource()) {
-      JedisServer jedisServer = parseSentinelCommandResponse(
-          sentinel(Protocol.SENTINEL_GET_MASTER_ADDR_BY_NAME).get(0));
-      jedisServer.setPools(masterJedisSentinelPool);
+
+    JedisServer masterServer = sentinelServer.getMasterServer();
+    masterServer.setPools(masterJedisSentinelPool);
+    this.masterServer = masterServer;
+    this.jedisServers.add(masterServer);
+  }
+
+
+  private void initSlavePools() {
+
+    for (JedisServer jedisServer : sentinelServer.getSlavesSever()) {
+
+      initPool(jedisServer);
+      this.slaveServers.add(jedisServer);
       this.jedisServers.add(jedisServer);
     }
   }
 
-  private List<Map<String, String>> sentinel(String command) {
+  private void initPool(JedisServer jedisServer) {
 
-    List<Map<String, String>> response = null;
-    for (String sentinel : sentinels) {
+    Assertions.isTrue("The pool has been already init", jedisServer.getPools() == null);
 
-      HostAndPort hostAndPort = HostAndPort.parseString(sentinel);
-      try (Jedis jedis = new Jedis(hostAndPort.getHost(), hostAndPort.getPort())) {
-        if (Protocol.SENTINEL_GET_MASTER_ADDR_BY_NAME.equals(command)) {
-          List<String> respStr = jedis.sentinelGetMasterAddrByName(masterName);
-          response = new ArrayList<>();
-          Map<String, String> map = new HashMap<>();
-          map.put("ip", respStr.get(0));
-          map.put("port", respStr.get(1));
-          map.put("flags", "master");
-          response.add(map);
-          break;
-        } else if (Protocol.SENTINEL_SLAVES.equals(command)) {
-          response = jedis.sentinelSlaves(masterName);
-          break;
-        }
-      } catch (RuntimeException re) {
-        continue;
-      }
-    }
+    Pool<Jedis> pool = new JedisPool(poolConfig,
+        jedisServer.getHostAndPort().getHost(),
+        jedisServer.getHostAndPort().getPort(), connectionTimeout, soTimeout,
+        password,
+        database, null, false, null, null, null);
 
-    if (response == null) {
-      throw new JedisException("cannot connect to sentinels " + sentinels);
-    }
-
-    return response;
-  }
-
-  private void initSlavePools() {
-
-    try (Jedis jedis = masterJedisSentinelPool.getResource()) {
-
-      List<Map<String, String>> response = sentinel(Protocol.SENTINEL_SLAVES);
-      List<JedisServer> jedisServers = new ArrayList<>();
-      for (Map<String, String> item : response) {
-        jedisServers.add(parseSentinelCommandResponse(item));
-      }
-
-      for (JedisServer jedisServer : jedisServers) {
-
-        Pool<Jedis> slavePool = new JedisPool(poolConfig,
-            jedisServer.getHostAndPort().getHost(),
-            jedisServer.getHostAndPort().getPort(), connectionTimeout, soTimeout,
-            password,
-            database, null, false, null, null, null);
-
-        jedisServer.setPools(slavePool);
-        this.jedisServers.add(jedisServer);
-      }
-    }
+    jedisServer.setPools(pool);
   }
 
   /**
@@ -185,24 +215,17 @@ public class JedisxSentinelPool {
   }
 
   /**
-   * 获取最近的一个Jedis, 有可能返回的Slave
+   * 获取最近的一个Slave Server, 假如没Slave, 则返回Master
    * 对一致性要求高的不能用该方法
    *
    * @return 最近的Jedis
    */
   public Jedis getNearestResource() {
 
-    List<JedisServer> jedisServers = nearestJedisSelector.select(this.jedisServers);
-    JedisServer randomJedis = jedisServers
-        .get(ThreadLocalRandom.current().nextInt(jedisServers.size()));
-    return randomJedis.getPools().getResource();
-  }
+    List<JedisServer> jedisServers = nearestSlavePreferredSelector.select(this.jedisServers);
+    isTrue("no sever selected " + jedisServers, !jedisServers.isEmpty());
 
-  private JedisServer parseSentinelCommandResponse(Map<String, String> description) {
-    HostAndPort hostAndPort = new HostAndPort(description.get("ip"),
-        Integer.parseInt(description.get("port")));
-    ServerRole serverType = ServerRole.codeOf(description.get("flags"));
-
-    return JedisServer.builder().hostAndPort(hostAndPort).serverType(serverType).build();
+    return jedisServers.get(ThreadLocalRandom.current().nextInt(jedisServers.size())).getPools()
+        .getResource();
   }
 }

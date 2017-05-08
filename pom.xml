@@ -6,7 +6,7 @@
 
   <groupId>com.yy</groupId>
   <artifactId>jedisx</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.2-SNAPSHOT</version>
 
   <properties>
     <testJavaHome>${env.JAVA7_HOME}</testJavaHome>
@@ -16,6 +16,11 @@
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>com.yy.cs</groupId>
+      <artifactId>cs-base</artifactId>
+      <version>1.1.33</version>
+    </dependency>
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>

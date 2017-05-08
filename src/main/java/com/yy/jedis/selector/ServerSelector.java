@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * @author hoswey
  */
-public interface JedisSelector {
+public interface ServerSelector {
 
-  List<JedisServer> select(List<JedisServer> jedisDescriptions);
+  List<JedisServer> select(List<JedisServer> JedisServers);
 }

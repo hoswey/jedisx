@@ -17,7 +17,7 @@
 package com.yy.jedis.selector;
 
 
-import static com.yy.jedis.assertions.Assertions.isTrueArgument;
+import static com.yy.jedis.utils.Assertions.isTrueArgument;
 
 class ExponentiallyWeightedMovingAverage {
 

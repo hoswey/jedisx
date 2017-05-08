@@ -7,7 +7,7 @@ import lombok.Getter;
  */
 public enum ServerRole {
 
-  MASTER("master"), SLAVE("slave");
+  MASTER("master"), SLAVE("slave"), SENTINEL("sentinel");
 
   @Getter
   private String code;

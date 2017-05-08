@@ -1,9 +1,9 @@
 package com.yy.jedis;
 
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
 import redis.clients.util.Pool;
@@ -14,17 +14,25 @@ import redis.clients.util.Pool;
 @Getter
 @Setter
 @EqualsAndHashCode(of = "hostAndPort")
-@Builder
+@ToString
 public class JedisServer {
 
   private long lastUpdateTimeNanos;
 
   private HostAndPort hostAndPort;
 
-  private ServerRole serverType;
+  private ServerRole role;
 
   private long roundTripTimeNanos;
 
   private Pool<Jedis> pools;
 
+  public JedisServer() {
+    super();
+  }
+
+  public JedisServer(ServerRole role, String host, int port) {
+    this.role = role;
+    this.hostAndPort = new HostAndPort(host, port);
+  }
 }

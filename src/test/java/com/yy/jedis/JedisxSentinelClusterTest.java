@@ -1,5 +1,6 @@
 package com.yy.jedis;
 
+import com.yy.jedis.sentinel.JedisxSentinelPool;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;

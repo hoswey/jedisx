@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.yy.jedis.assertions;
+package com.yy.jedis.utils;
 
 
 /**
@@ -53,19 +53,6 @@ public final class Assertions {
   public static void isTrue(final String name, final boolean condition) {
     if (!condition) {
       throw new IllegalStateException("state should be: " + name);
-    }
-  }
-
-  /**
-   * Throw IllegalArgumentException if the condition if false.
-   *
-   * @param name the name of the state that is being checked
-   * @param condition the condition about the parameter to check
-   * @throws java.lang.IllegalArgumentException if the condition is false
-   */
-  public static void isTrueArgument(final String name, final boolean condition) {
-    if (!condition) {
-      throw new IllegalArgumentException("state should be: " + name);
     }
   }
 }
