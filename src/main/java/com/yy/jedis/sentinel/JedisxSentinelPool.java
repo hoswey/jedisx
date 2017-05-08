@@ -146,7 +146,7 @@ public class JedisxSentinelPool {
           jedisServers = newJedisServers;
 
           for (JedisServer oldSlaveServer : slaveServers) {
-            closePool(oldSlaveServer);
+            oldSlaveServer.stop();
           }
         }
       }
@@ -158,12 +158,6 @@ public class JedisxSentinelPool {
     });
   }
 
-  private void closePool(JedisServer jedisServer) {
-    try {
-      jedisServer.getPools().close();
-    } catch (Exception e) {
-    }
-  }
 
   private void startMonitorThread() {
     serverMonitor = new ServerMonitor(this.jedisServers);
@@ -204,6 +198,15 @@ public class JedisxSentinelPool {
 
     jedisServer.setPools(pool);
   }
+
+  public void stop() {
+    this.serverMonitor.stop();
+    this.sentinelServer.stop();
+    for (JedisServer jedisServer : jedisServers) {
+      jedisServer.stop();
+    }
+  }
+
 
   /**
    * 获取Master的Jedis

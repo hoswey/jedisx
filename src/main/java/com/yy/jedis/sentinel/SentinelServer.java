@@ -40,11 +40,15 @@ public class SentinelServer {
 
   private List<SentinelEventListener> sentinelEventListeners = new ArrayList<>();
 
+  private List<SentinelSubscriber> sentinelSubscribers;
+
   private Lock slaveLock = new ReentrantLock();
   private Condition slaveInitializeCondition = slaveLock.newCondition();
 
   private Lock masterLock = new ReentrantLock();
   private Condition masterInitializeCondition = masterLock.newCondition();
+
+  private ScheduledExecutorService scheduledExecutorService;
 
   public SentinelServer(String masterName, Set<String> sentinels,
       SentinelEventListener eventListener) {
@@ -57,13 +61,20 @@ public class SentinelServer {
     }
     this.sentinelEventListeners.add(eventListener);
 
-    startSubscribeSentinemChannels();
+    startSubscribeSentinelChannels();
 
-    ScheduledExecutorService scheduledExecutorService = Executors
+    scheduledExecutorService = Executors
         .newSingleThreadScheduledExecutor(
             new DaemonThreadFactory("Redis Server Pooling Status Pool"));
     scheduledExecutorService.scheduleAtFixedRate(new MasterSlavesPoolingTask(),
         0, 10, TimeUnit.SECONDS);
+  }
+
+  public void stop() {
+    scheduledExecutorService.shutdownNow();
+    for (SentinelSubscriber sentinelSubscriber : sentinelSubscribers) {
+      sentinelSubscriber.close();
+    }
   }
 
 
@@ -130,11 +141,15 @@ public class SentinelServer {
     return flags.contains("s_down") || flags.contains("disconnected");
   }
 
-  public void startSubscribeSentinemChannels() {
+  public void startSubscribeSentinelChannels() {
+
+    sentinelSubscribers = new ArrayList<>();
     for (HostAndPort hostAndPort : hostAndPorts) {
       SentinelSubscriber sentinelListener = new SentinelSubscriber(masterName, hostAndPort);
       sentinelListener.setDaemon(true);
       sentinelListener.start();
+
+      sentinelSubscribers.add(sentinelListener);
     }
   }
 
@@ -177,7 +192,7 @@ public class SentinelServer {
         SentinelServer.this.slaveServers = newSlaveServers;
         SentinelServer.this.slaveInitializeCondition.signal();
 
-
+        //TODO add slave change
       }
     } finally {
       SentinelServer.this.slaveLock.unlock();
@@ -239,6 +254,7 @@ public class SentinelServer {
     }
   }
 
+
   public interface SentinelEventListener {
 
     void onSlaveChange(List<JedisServer> newSlaves);
@@ -255,20 +271,18 @@ public class SentinelServer {
     }
   }
 
-  protected class SentinelSubscriber extends Thread {
+  private class SentinelSubscriber extends Thread {
 
-    protected String masterName;
-    protected HostAndPort hostAndPort;
-    protected long subscribeRetryWaitTimeMillis = 5000;
-    protected AtomicBoolean running = new AtomicBoolean(false);
+    private HostAndPort hostAndPort;
+    private long subscribeRetryWaitTimeMillis = 5000;
+    private volatile AtomicBoolean running = new AtomicBoolean(false);
 
-    private SentinelChannelPubSub sentinelChannelPubSub;
+    private volatile SentinelChannelPubSub sentinelChannelPubSub;
 
     public SentinelSubscriber(String masterName, HostAndPort hostAndPort) {
 
       super(String.format("SentinelListener-%s-[%s:%d]", masterName, hostAndPort.getHost(),
           hostAndPort.getPort()));
-      this.masterName = masterName;
       this.hostAndPort = hostAndPort;
 
       sentinelChannelPubSub = new SentinelChannelPubSub();
@@ -312,7 +326,7 @@ public class SentinelServer {
       }
     }
 
-    public void shutdown() {
+    public void close() {
       try {
         if (!running.compareAndSet(true, false)) {
           return;

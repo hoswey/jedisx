@@ -35,4 +35,10 @@ public class JedisServer {
     this.role = role;
     this.hostAndPort = new HostAndPort(host, port);
   }
+
+  public void stop() {
+    if (pools != null) {
+      pools.destroy();
+    }
+  }
 }

@@ -39,6 +39,10 @@ public class ServerMonitor {
     }
   }
 
+  public void stop() {
+    scheduledExecutorService.shutdownNow();
+  }
+
   private void startMonitor(JedisServer jedisServer) {
 
     ScheduledFuture<?> scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(

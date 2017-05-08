@@ -6,7 +6,7 @@
 
   <groupId>com.yy</groupId>
   <artifactId>jedisx</artifactId>
-  <version>0.0.2-SNAPSHOT</version>
+  <version>0.0.3-SNAPSHOT</version>
 
   <properties>
     <testJavaHome>${env.JAVA7_HOME}</testJavaHome>
