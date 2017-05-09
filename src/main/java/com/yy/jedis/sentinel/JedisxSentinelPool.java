@@ -200,11 +200,16 @@ public class JedisxSentinelPool {
   }
 
   public void stop() {
+
+    log.info("[cmd=stop,msg=begin stop]");
+
     this.serverMonitor.stop();
     this.sentinelServer.stop();
     for (JedisServer jedisServer : jedisServers) {
       jedisServer.stop();
     }
+
+    log.info("[cmd=stop,msg=stop successful]");
   }
 
 
