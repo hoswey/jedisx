@@ -21,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisSentinelPool;
 import redis.clients.jedis.Protocol;
 import redis.clients.util.Pool;
 
@@ -33,15 +32,12 @@ import static com.yy.jedis.utils.Assertions.isTrue;
 @Slf4j
 public class JedisxSentinelPool {
 
-
   private GenericObjectPoolConfig poolConfig;
   private int connectionTimeout;
   private int soTimeout;
   private String password;
   private int database;
-  private String clientName;
   private String masterName;
-  private JedisSentinelPool masterJedisSentinelPool;
   private Set<String> sentinels;
 
   private volatile JedisServer masterServer;
@@ -114,7 +110,6 @@ public class JedisxSentinelPool {
     this.soTimeout = soTimeout;
     this.password = password;
     this.database = database;
-    this.clientName = clientName;
     this.sentinels = sentinels;
 
     initSentinelSever();
@@ -171,6 +166,8 @@ public class JedisxSentinelPool {
     try {
 
       boolean isSlaveServersChanged = !CollectionUtils.isEqual(this.slaveServers, newSlaveServers);
+      log.debug("[cmd=doOnSlaveServerChange,isSlaveServersChanged={}]", isSlaveServersChanged);
+
       if (isSlaveServersChanged) {
 
         for (JedisServer newSlaveServer : newSlaveServers) {
@@ -179,6 +176,7 @@ public class JedisxSentinelPool {
         for (JedisServer oldSlaveServer : slaveServers) {
           oldSlaveServer.stop();
         }
+        this.slaveServers = newSlaveServers;
         updateMonitor();
       }
     } finally {
@@ -211,7 +209,8 @@ public class JedisxSentinelPool {
 
   private void initPool(JedisServer jedisServer) {
 
-    Assertions.isTrue("The pool has been already init", jedisServer.getPools() == null);
+    Assertions.isTrue("The pool has been already init " + jedisServer.getHostAndPort() + " " + jedisServer.getName()
+        , jedisServer.getPools() == null);
 
     Pool<Jedis> pool = new JedisPool(poolConfig,
         jedisServer.getHostAndPort().getHost(),

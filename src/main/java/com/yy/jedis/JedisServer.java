@@ -1,7 +1,7 @@
 package com.yy.jedis;
 
-import java.util.Objects;
 import java.util.UUID;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -15,6 +15,7 @@ import redis.clients.util.Pool;
 @Getter
 @Setter
 @ToString
+@EqualsAndHashCode(of = "hostAndPort")
 public class JedisServer {
 
   private long lastUpdateTimeNanos;
@@ -44,24 +45,4 @@ public class JedisServer {
     }
   }
 
-  @Override
-  public boolean equals(Object o) {
-    System.out.println("JedisServer equal");
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof JedisServer)) {
-      return false;
-    }
-    JedisServer that = (JedisServer) o;
-
-    System.out.println("this = " + this + ", o = " + o + ", result=" + Objects.equals(getHostAndPort(), that.getHostAndPort()));
-
-    return Objects.equals(getHostAndPort(), that.getHostAndPort());
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(getHostAndPort());
-  }
 }

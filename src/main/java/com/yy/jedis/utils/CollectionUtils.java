@@ -31,16 +31,13 @@ public class CollectionUtils {
 
   public static boolean isEqual(Collection<?> c1, Collection<?> c2) {
 
-//    System.out.println(1 + ", c1=" + c1 + ",c2=" + c2);
     if (c1 == null && c2 != null || c1 != null && c2 == null) {
       return false;
     }
 
-    System.out.println(2);
     if (c1 == c2) {
       return true;
     }
-    System.out.println(3 + " " + (c1.containsAll(c2) && c2.containsAll(c1)));
 
     return c1.containsAll(c2) && c2.containsAll(c1);
   }
