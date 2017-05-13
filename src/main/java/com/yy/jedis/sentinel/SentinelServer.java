@@ -315,9 +315,7 @@ public class SentinelServer {
           j = new Jedis(hostAndPort.getHost(), hostAndPort.getPort());
 //          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown",
 //          "-sdown")
-          ;//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");
-//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");
-          j.psubscribe(sentinelChannelPubSub, "*");
+//          ;//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");
           log.debug("After subscribe sentinel channel");
         } catch (JedisConnectionException e) {
 
