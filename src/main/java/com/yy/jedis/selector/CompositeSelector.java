@@ -8,7 +8,7 @@ import static com.yy.jedis.utils.Assertions.notNull;
 
 /**
  * A server selector that composes a list of server selectors, and selects the servers by iterating
- * through the list from start to finish, passing the result of the previous into the next, and
+ * through the list from onSererChange to finish, passing the result of the previous into the next, and
  * finally returning the result of the last one.
  *
  * @author hoswey

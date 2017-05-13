@@ -17,11 +17,6 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.yy.cs</groupId>
-      <artifactId>cs-base</artifactId>
-      <version>1.1.33</version>
-    </dependency>
-    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <version>1.16.10</version>

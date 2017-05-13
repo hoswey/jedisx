@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+  <!-- Handle JUL -->
+  <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator">
+    <resetJUL>true</resetJUL>
+  </contextListener>
+
+  <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%date [%thread] [%file:%line] [%level %logger{0}] - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="all" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>/data/weblog/business/jedisx/all.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>/data/weblog/business/antispam-entry/rolling/all.%d{yyyy-MM-dd}.%i.log.gz
+      </fileNamePattern>
+      <timeBasedFileNamingAndTriggeringPolicy
+        class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+        <maxFileSize>256MB</maxFileSize>
+      </timeBasedFileNamingAndTriggeringPolicy>
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+    <encoder>
+      <charset>UTF-8</charset>
+      <pattern>%date [%thread] [%file:%line] [%level %logger{0}] - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="debug">
+    <appender-ref ref="all"/>
+    <appender-ref ref="stdout"/>
+  </root>
+
+</configuration>
+

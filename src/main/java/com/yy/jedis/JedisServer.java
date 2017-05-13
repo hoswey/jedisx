@@ -1,6 +1,7 @@
 package com.yy.jedis;
 
-import lombok.EqualsAndHashCode;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -13,7 +14,6 @@ import redis.clients.util.Pool;
  */
 @Getter
 @Setter
-@EqualsAndHashCode(of = "hostAndPort")
 @ToString
 public class JedisServer {
 
@@ -25,7 +25,9 @@ public class JedisServer {
 
   private long roundTripTimeNanos;
 
-  private Pool<Jedis> pools;
+  private String name = UUID.randomUUID().toString();
+
+  private Pool<Jedis> pools = null;
 
   public JedisServer() {
     super();
@@ -40,5 +42,26 @@ public class JedisServer {
     if (pools != null) {
       pools.destroy();
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    System.out.println("JedisServer equal");
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof JedisServer)) {
+      return false;
+    }
+    JedisServer that = (JedisServer) o;
+
+    System.out.println("this = " + this + ", o = " + o + ", result=" + Objects.equals(getHostAndPort(), that.getHostAndPort()));
+
+    return Objects.equals(getHostAndPort(), that.getHostAndPort());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getHostAndPort());
   }
 }

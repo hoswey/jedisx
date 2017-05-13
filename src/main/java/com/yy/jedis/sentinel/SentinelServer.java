@@ -30,15 +30,24 @@ import redis.clients.jedis.exceptions.JedisException;
 @Slf4j
 public class SentinelServer {
 
+  /**
+   * Host and port of the redis sentinel servers;
+   */
   private Set<HostAndPort> hostAndPorts;
 
   private String masterName;
 
+  /**
+   * The discovery redis slave server;
+   */
   private List<JedisServer> slaveServers;
 
+  /**
+   * The discovery redis master server;
+   */
   private JedisServer masterServer;
 
-  private List<SentinelEventListener> sentinelEventListeners = new ArrayList<>();
+  private List<SentinelEventListener> sentinelEventListeners;
 
   private List<SentinelSubscriber> sentinelSubscribers;
 
@@ -59,15 +68,20 @@ public class SentinelServer {
     for (String sentinel : sentinels) {
       hostAndPorts.add(HostAndPort.parseString(sentinel));
     }
+
+    sentinelEventListeners = new ArrayList<>();
     this.sentinelEventListeners.add(eventListener);
 
     startSubscribeSentinelChannels();
 
+  }
+
+  public void start() {
     scheduledExecutorService = Executors
         .newSingleThreadScheduledExecutor(
             new DaemonThreadFactory("Redis Server Pooling Status Pool"));
     scheduledExecutorService.scheduleAtFixedRate(new MasterSlavesPoolingTask(),
-        0, 10, TimeUnit.SECONDS);
+        0, 2, TimeUnit.SECONDS);
   }
 
   public void stop() {
@@ -192,7 +206,7 @@ public class SentinelServer {
         SentinelServer.this.slaveServers = newSlaveServers;
         SentinelServer.this.slaveInitializeCondition.signal();
 
-        //TODO add slave change
+        onSlaveChange(slaveServers);
       }
     } finally {
       SentinelServer.this.slaveLock.unlock();
@@ -244,22 +258,22 @@ public class SentinelServer {
 
   private void onMasterChange(JedisServer newMasterServer) {
     for (SentinelEventListener listener : sentinelEventListeners) {
-      listener.onMasterChange(newMasterServer);
+      try {
+        listener.onMasterChange(newMasterServer);
+      } catch (Exception e) {
+        log.error("Exception caught when onMasterChange", e);
+      }
     }
   }
 
   private void onSlaveChange(List<JedisServer> newSlaveServers) {
     for (SentinelEventListener listener : sentinelEventListeners) {
-      listener.onSlaveChange(newSlaveServers);
+      try {
+        listener.onSlaveChange(newSlaveServers);
+      } catch (Exception e) {
+        log.error("Exception caught when onSlaveChange", e);
+      }
     }
-  }
-
-
-  public interface SentinelEventListener {
-
-    void onSlaveChange(List<JedisServer> newSlaves);
-
-    void onMasterChange(JedisServer newMaster);
   }
 
   protected class MasterSlavesPoolingTask implements Runnable {
@@ -299,7 +313,11 @@ public class SentinelServer {
         Jedis j = null;
         try {
           j = new Jedis(hostAndPort.getHost(), hostAndPort.getPort());
-          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown");
+//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown",
+//          "-sdown")
+          ;//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");
+//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");
+          j.psubscribe(sentinelChannelPubSub, "*");
           log.debug("After subscribe sentinel channel");
         } catch (JedisConnectionException e) {
 
@@ -313,6 +331,8 @@ public class SentinelServer {
               Thread.currentThread().interrupt();
               log.error("Sleep interrupted: ", e1);
             }
+          } else {
+            log.error("", e);
           }
         } finally {
           if (j != null) {
@@ -342,9 +362,11 @@ public class SentinelServer {
   class SentinelChannelPubSub extends JedisPubSub {
 
     @Override
-    public void onMessage(String channel, String message) {
+//    public void onMessage(String channel, String message) {
+//    @Override
+    public void onPMessage(String pattern, String channel, String message) {
 
-      log.info("Sentinel message: " + message);
+      log.info("[cmd=onMessage,pattern={},channel={}, message={}]", pattern, channel, message);
 
       String masterName;
       switch (channel) {
@@ -358,7 +380,8 @@ public class SentinelServer {
           masterName = sdownMsg[5];
           break;
         default:
-          throw new IllegalStateException("unknown channel found " + channel);
+          return;
+        //throw new IllegalStateException("unknown channel found " + channel);
       }
 
       String currentMasterName = SentinelServer.this.masterName;

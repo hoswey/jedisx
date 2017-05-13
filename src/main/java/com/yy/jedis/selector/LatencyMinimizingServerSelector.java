@@ -12,7 +12,13 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  */
 public class LatencyMinimizingServerSelector implements ServerSelector {
 
+  private static final int DEFAULT_ACCEPTABLE_LATENCY_DIFFERENCE = 5;
+
   private final long acceptableLatencyDifferenceNanos;
+
+  public LatencyMinimizingServerSelector() {
+    this(DEFAULT_ACCEPTABLE_LATENCY_DIFFERENCE, TimeUnit.MILLISECONDS);
+  }
 
   /**
    * @param acceptableLatencyDifference the maximum difference in ping-time latency between the
