@@ -8,8 +8,19 @@
   <artifactId>jedisx</artifactId>
   <version>0.0.4-SNAPSHOT</version>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <url>https://svn.apache.org/viewvc/maven</url>
+  </scm>
+
   <properties>
-    <testJavaHome>${env.JAVA7_HOME}</testJavaHome>
     <streamsupport.version>1.5.4</streamsupport.version>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>

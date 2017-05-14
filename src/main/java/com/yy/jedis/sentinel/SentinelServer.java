@@ -313,9 +313,7 @@ public class SentinelServer {
         Jedis j = null;
         try {
           j = new Jedis(hostAndPort.getHost(), hostAndPort.getPort());
-//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown",
-//          "-sdown")
-//          ;//          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown", "switch-master");
+          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown");
           log.debug("After subscribe sentinel channel");
         } catch (JedisConnectionException e) {
 
@@ -360,11 +358,9 @@ public class SentinelServer {
   class SentinelChannelPubSub extends JedisPubSub {
 
     @Override
-//    public void onMessage(String channel, String message) {
-//    @Override
-    public void onPMessage(String pattern, String channel, String message) {
+    public void onMessage(String channel, String message) {
 
-      log.info("[cmd=onMessage,pattern={},channel={}, message={}]", pattern, channel, message);
+      log.info("[cmd=onMessage,channel={}, message={}]", channel, message);
 
       String masterName;
       switch (channel) {

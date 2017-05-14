@@ -27,8 +27,8 @@ public class Test {
     }
 
     //睡眠一定时间保证从库能及时同步
-    
     Thread.sleep(100);
+    
     //获取最近的一个从库，假如没有从库，则获取主库
     try (Jedis jedis = cluster.getNearestResource()) {
       String valueInSlave = jedis.get(key);
