@@ -101,7 +101,7 @@ public class SentinelServer {
         try {
           if (!masterInitializeCondition.await(5, TimeUnit.SECONDS)
               || masterServer == null) {
-            throw new JedisException("Cannot discover master server in 5 second");
+            throw new JedisException("Cannot discover master server in 5 second, master is " + masterName);
           }
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
@@ -298,7 +298,6 @@ public class SentinelServer {
       super(String.format("SentinelListener-%s-[%s:%d]", masterName, hostAndPort.getHost(),
           hostAndPort.getPort()));
       this.hostAndPort = hostAndPort;
-
       sentinelChannelPubSub = new SentinelChannelPubSub();
     }
 
@@ -307,36 +306,17 @@ public class SentinelServer {
     public void run() {
 
       running.set(true);
-
       while (running.get()) {
-
-        Jedis j = null;
-        try {
-          j = new Jedis(hostAndPort.getHost(), hostAndPort.getPort());
-          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown");
+        try (Jedis j = new Jedis(hostAndPort.getHost(), hostAndPort.getPort())) {
+          j.subscribe(sentinelChannelPubSub, "+switch-master", "+sdown", "-sdown");
           log.debug("After subscribe sentinel channel");
         } catch (JedisConnectionException e) {
-
-          if (running.get()) {
-            log.error("Lost connection to Sentinel at " + hostAndPort.getHost() + ":" + hostAndPort
-                .getPort()
-                + ". Sleeping " + subscribeRetryWaitTimeMillis + "ms and retrying.", e);
-            try {
-              Thread.sleep(subscribeRetryWaitTimeMillis);
-            } catch (InterruptedException e1) {
-              Thread.currentThread().interrupt();
-              log.error("Sleep interrupted: ", e1);
-            }
-          } else {
+          try {
             log.error("", e);
-          }
-        } finally {
-          if (j != null) {
-            try {
-              j.close();
-            } catch (RuntimeException re) {
-              log.error("Caught exception while close jedis: ", re);
-            }
+            Thread.sleep(subscribeRetryWaitTimeMillis);
+          } catch (InterruptedException e1) {
+            log.error("Sleep interrupted: ", e1);
+            Thread.currentThread().interrupt();
           }
         }
       }

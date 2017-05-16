@@ -1,5 +1,9 @@
 package com.yy.jedis;
 
+import com.yy.jedis.sentinel.JedisxSentinelPool;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
@@ -11,6 +15,11 @@ public class JedisxSentinelClusterTest {
 
   @Test
   public void getResource() throws Exception {
+
+    Set<String> sentinels = new HashSet<>(Arrays.asList("172.26.40.16:26379",
+        "172.26.40.16:26380", "172.26.40.16:26381"));
+    JedisxSentinelPool cluster = new JedisxSentinelPool("mymaster", sentinels);
+    cluster.getResource().zadd("foo", System.currentTimeMillis(), "bar");
   }
 
   @Test
