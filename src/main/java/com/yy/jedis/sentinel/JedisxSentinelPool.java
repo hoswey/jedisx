@@ -209,7 +209,9 @@ public class JedisxSentinelPool {
 
   private void initPool(JedisServer jedisServer) {
 
-    Assertions.isTrue("The pool has been already init " + jedisServer.getHostAndPort() + " " + jedisServer.getName()
+    Assertions.isTrue(
+        "The pool has been already init " + jedisServer.getHostAndPort() + " " + jedisServer
+            .getName()
         , jedisServer.getPools() == null);
 
     Pool<Jedis> pool = new JedisPool(poolConfig,
@@ -254,7 +256,10 @@ public class JedisxSentinelPool {
     List<JedisServer> jedisServers = nearestSlavePreferredSelector.select(getServers());
     isTrue("no sever selected " + jedisServers, !jedisServers.isEmpty());
 
-    return jedisServers.get(ThreadLocalRandom.current().nextInt(jedisServers.size())).getPools()
+    JedisServer selected = jedisServers
+        .get(ThreadLocalRandom.current().nextInt(jedisServers.size()));
+
+    return selected.getPools()
         .getResource();
   }
 
